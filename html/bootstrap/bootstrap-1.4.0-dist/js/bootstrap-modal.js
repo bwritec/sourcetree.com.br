@@ -1,0 +1,356 @@
+/**
+ * bootstrap-modal.js v1.4.0.
+ *
+ * Copyright (C) <ano>  Chifrudo <chifrudo@localhost.com.br>
+ *
+ * Este programa é um software livre: você pode redistribuí-lo e/ou
+ * modificá-lo sob os termos da GNU General Public License conforme
+ * publicada por a Free Software Foundation, seja a versão 3 da
+ * Licença, ou (a seu critério) qualquer versão posterior.
+ *
+ * Este programa é distribuído na esperança de que seja útil,
+ * mas SEM QUALQUER GARANTIA; mesmo sem a garantia implícita de
+ * COMERCIABILIDADE ou ADEQUAÇÃO PARA UM FIM ESPECÍFICO. Veja a
+ * Licença Pública Geral GNU para mais detalhes.
+ *
+ * Você deve ter recebido uma cópia da GNU General Public License
+ * juntamente com este programa. Caso contrário, consulte
+ * <https://www.gnu.org/licenses/>.
+ */
+
+
+/**
+ *
+ */
+!function($)
+{
+    "use strict";
+
+    /**
+     * CSS TRANSITION SUPPORT (https://gist.github.com/373874).
+     */
+    var transitionEnd;
+
+    /**
+     *
+     */
+    $(document).ready(function ()
+    {
+        $.support.transition = (function ()
+        {
+            var thisBody = document.body || document.documentElement,
+                thisStyle = thisBody.style,
+                support = thisStyle.transition !== undefined || thisStyle.WebkitTransition !== undefined || thisStyle.MozTransition !== undefined || thisStyle.MsTransition !== undefined || thisStyle.OTransition !== undefined;
+
+            return support;
+        })();
+
+        /**
+         * Definir o tipo de evento de transição CSS.
+         */
+        if ($.support.transition)
+        {
+            transitionEnd = "TransitionEnd";
+
+            if ($.browser.webkit)
+            {
+                transitionEnd = "webkitTransitionEnd";
+            } else if ($.browser.mozilla)
+            {
+                transitionEnd = "transitionend";
+            } else if ($.browser.opera)
+            {
+                transitionEnd = "oTransitionEnd";
+            }
+        }
+    });
+
+    /**
+     * MODAL PUBLIC CLASS DEFINITION.
+     */
+    var Modal = function (content, options)
+    {
+        this.settings = $.extend({}, $.fn.modal.defaults, options);
+        this.$element = $(content).delegate(".close", "click.modal", $.proxy(this.hide, this));
+
+        if (this.settings.show)
+        {
+            this.show();
+        }
+
+        return this;
+    }
+
+    /**
+     *
+     */
+    Modal.prototype = {
+        /**
+         *
+         */
+        toggle: function ()
+        {
+            return this[!this.isShown ? "show" : "hide"]();
+        },
+
+        /**
+         *
+         */
+        show: function ()
+        {
+            var that = this
+                this.isShown = true
+                this.$element.trigger("show");
+
+            escape.call(this);
+            backdrop.call(this, function ()
+            {
+                var transition = $.support.transition && that.$element.hasClass("fade");
+
+                that.$element
+                    .appendTo(document.body)
+                    .show();
+
+                if (transition)
+                {
+                    /**
+                     * Forçar refluxo.
+                     */
+                    that.$element[0].offsetWidth;
+                }
+
+                that.$element.addClass("in");
+                transition ?
+                    that.$element.one(transitionEnd, function ()
+                    {
+                        that.$element.trigger("shown");
+                    }) : that.$element.trigger("shown");
+            });
+
+            return this;
+        },
+
+        /**
+         *
+         */
+        hide: function (e)
+        {
+            e && e.preventDefault();
+
+            if (!this.isShown)
+            {
+                return this;
+            }
+
+            /**
+             *
+             */
+            var that = this;
+                this.isShown = false;
+
+            /**
+             *
+             */
+            escape.call(this);
+
+            /**
+             *
+             */
+            this.$element
+                .trigger("hide")
+                .removeClass("in");
+
+            /**
+             *
+             */
+            $.support.transition && this.$element.hasClass("fade") ?
+                hideWithTransition.call(this) :
+                hideModal.call(this);
+
+            return this;
+        }
+    }
+
+    /**
+     * MODAL PRIVATE METHODS.
+     */
+    function hideWithTransition()
+    {
+        /**
+         * Firefox descarta eventos transitionEnd.
+         */
+        var that = this,
+            timeout = setTimeout(function ()
+            {
+                that.$element.unbind(transitionEnd);
+                hideModal.call(that);
+            }, 500);
+
+        this.$element.one(transitionEnd, function ()
+        {
+            clearTimeout(timeout);
+            hideModal.call(that);
+        });
+    }
+
+    /**
+     *
+     */
+    function hideModal(that)
+    {
+        this.$element
+            .hide()
+            .trigger("hidden");
+
+        backdrop.call(this);
+    }
+
+    /**
+     *
+     */
+    function backdrop (callback)
+    {
+        var that = this,
+            animate = this.$element.hasClass("fade") ? "fade" : "";
+
+        if (this.isShown && this.settings.backdrop)
+        {
+            var doAnimate = $.support.transition && animate;
+
+            this.$backdrop = $('<div class="modal-backdrop ' + animate + '" />')
+                .appendTo(document.body);
+
+            if (this.settings.backdrop != "static")
+            {
+                this.$backdrop.click($.proxy(this.hide, this));
+            }
+
+            if (doAnimate)
+            {
+                /**
+                 * Forçar refluxo.
+                 */
+                this.$backdrop[0].offsetWidth;
+            }
+
+            /**
+             *
+             */
+            this.$backdrop.addClass("in");
+
+            /**
+             *
+             */
+            doAnimate ?
+                this.$backdrop.one(transitionEnd, callback) :
+                callback();
+        } else if (!this.isShown && this.$backdrop)
+        {
+            this.$backdrop.removeClass("in");
+
+            $.support.transition && this.$element.hasClass("fade")?
+                this.$backdrop.one(transitionEnd, $.proxy(removeBackdrop, this)) :
+                removeBackdrop.call(this);
+        } else if (callback)
+        {
+            callback();
+        }
+    }
+
+    /**
+     *
+     */
+    function removeBackdrop()
+    {
+        this.$backdrop.remove();
+        this.$backdrop = null;
+    }
+
+    /**
+     *
+     */
+    function escape()
+    {
+        var that = this;
+
+        if (this.isShown && this.settings.keyboard)
+        {
+            $(document).bind("keyup.modal", function (e)
+            {
+                if (e.which == 27)
+                {
+                    that.hide();
+                }
+            });
+        } else if (!this.isShown)
+        {
+            $(document).unbind("keyup.modal");
+        }
+    }
+
+    /**
+     * MODAL PLUGIN DEFINITION.
+     */
+    $.fn.modal = function (options)
+    {
+        var modal = this.data("modal");
+
+        if (!modal)
+        {
+            if (typeof options == "string")
+            {
+                options = {
+                    show: /show|toggle/.test(options)
+                }
+            }
+
+            return this.each(function()
+            {
+                $(this).data("modal", new Modal(this, options));
+            });
+        }
+
+        if (options === true)
+        {
+            return modal;
+        }
+
+        if (typeof options == "string")
+        {
+            modal[options]();
+        } else if (modal)
+        {
+            modal.toggle();
+        }
+
+        return this;
+    }
+
+    $.fn.modal.Modal = Modal;
+    $.fn.modal.defaults = {
+        backdrop: false,
+        keyboard: false,
+        show: false
+    };
+
+    /**
+     * MODAL DATA- IMPLEMENTATION.
+     */
+    $(document).ready(function ()
+    {
+        $("body").delegate("[data-controls-modal]", "click", function (e)
+        {
+            e.preventDefault();
+
+            /**
+             *
+             */
+            var $this = $(this).data("show", true);
+
+            /**
+             *
+             */
+            $('#' + $this.attr('data-controls-modal')).modal($this.data());
+        });
+    });
+}(window.jQuery || window.ender);
